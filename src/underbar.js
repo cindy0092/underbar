@@ -201,30 +201,78 @@ var _ = {};
   //     return total + number;
   //   }, 0); // should be 6
   _.reduce = function(collection, iterator, accumulator) {
+    var carryValue = accumulator;
+    var result;
+    _.each(collection, function(e,i,l) {
+      if (carryValue) {
+        carryValue = iterator(carryValue,e,i,l);
+        result = carryValue;
+      }
+      else {
+        carryValue = e;
+      }
+    });
+    return result;
   };
 
   // Determine if the array or object contains a given value (using `===`).
   _.contains = function(collection, target) {
     // TIP: Many iteration problems can be most easily expressed in
     // terms of reduce(). Here's a freebie to demonstrate!
-    return _.reduce(collection, function(wasFound, item) {
-      if (wasFound) {
-        return true;
-      }
+    /*
+    return _.reduce(collection,function(wasFound, item) {
+      if (wasFound) {return true;}
       return item === target;
-    }, false);
+      }, false);
+    */
+    //mlom: freebie contains() included above does not pass with 
+    //my implementation of reduce() above. As such, re-solved below:
+
+    var wasFound = _.indexOf(collection, target);
+    if (wasFound === -1) {return false;}
+    else {return true;};
+
   };
 
 
   // Determine whether all of the elements match a truth test.
   _.every = function(collection, iterator) {
     // TIP: Try re-using reduce() here.
+    //mlom: unable to solve using reduce(), so solved independent of reduce().
+    if (!iterator) {
+      var iterator = _.identity;
+    }
+    
+    var result = true;
+
+    _.each(collection, function(e,i,l){
+      var failTest = iterator.apply(this,arguments) ? true : false;
+        if (failTest === false) {
+          result = false;
+        }
+    });
+    
+    return result;
   };
 
   // Determine whether any of the elements pass a truth test. If no iterator is
   // provided, provide a default one
   _.some = function(collection, iterator) {
     // TIP: There's a very clever way to re-use every() here.
+    if (!iterator) {
+      var iterator = _.identity;
+    }
+    
+    var result = false;
+
+    _.each(collection, function(e,i,l){
+      var failTest = iterator.apply(this,arguments) ? true : false;
+        if (failTest === true) {
+          result = true;
+        }
+    });
+    
+    return result;
   };
 
 
@@ -247,11 +295,29 @@ var _ = {};
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
   _.extend = function(obj) {
+    for (var i = 1; i < arguments.length; i++){
+      var source = arguments[i];
+      for (var prop in source) {
+        obj[prop] = source[prop];
+      }
+    }
+    return obj;
   };
 
   // Like extend, but doesn't ever overwrite a key that already
   // exists in obj
   _.defaults = function(obj) {
+    for (var i = 1; i < arguments.length; i++){
+      var source = arguments[i];
+      for (var prop in source) {
+        if ( !obj.hasOwnProperty(prop) ){
+
+        obj[prop] = source[prop];
+        }
+      }
+    }
+    return obj;
+
   };
 
 
@@ -293,6 +359,14 @@ var _ = {};
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    var passedArg = {};
+    return function(arg) {
+      var cache = passedArg;
+      if ( !hasOwnProperty.call(cache,arg) ) {
+        cache[arg] = func.apply(this,arguments);
+      }
+      return cache[arg];
+    }
   };
 
   // Delays a function for the given number of milliseconds, and then calls
@@ -302,6 +376,11 @@ var _ = {};
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
   _.delay = function(func, wait) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    var callback = function() {
+      return func.apply(this, args)
+    };
+    return setTimeout(callback, wait);
   };
 
 
@@ -316,6 +395,20 @@ var _ = {};
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
   _.shuffle = function(array) {
+    var list = Array.prototype.slice.call(array,0);
+    var len = list.length;
+    var getRandomNum = function (min,max) {
+      return Math.floor(Math.random()*(max-min+1)) + min; 
+    }
+    for (var i = len-1; i > 0; i--) {
+      var roll = getRandomNum(0, i);
+      var valueOfRolledIndex = list[roll];
+      var valueOfRangeEnd = list[i];
+      list[i] = valueOfRolledIndex;
+      list[roll] = valueOfRangeEnd;
+    }
+    return list;
+
   };
 
 
@@ -330,6 +423,27 @@ var _ = {};
   // of that string. For example, _.sortBy(people, 'name') should sort
   // an array of people by their name.
   _.sortBy = function(collection, iterator) {
+      var items = _.map(collection, function(e,i,l) {
+        return {
+          index: i, 
+          value: e, 
+          sortValue: iterator === 'length' ? e.length : iterator.call(this,e,i,l)
+          };
+      });
+      
+      var compare = function(a,b){
+        var A = a.sortValue;
+        var B = b.sortValue;
+       if (A !== B) {
+          if (A > B || A === undefined) {return 1;}
+          if (A < B || B === undefined) {return -1;}
+       }
+        return a.index - b.index; 
+      };
+      
+      items.sort(compare);
+    
+    return _.pluck(items, 'value');
   };
 
   // Zip together two or more arrays with elements of the same index
@@ -338,6 +452,16 @@ var _ = {};
   // Example:
   // _.zip(['a','b','c','d'], [1,2,3]) returns [['a',1], ['b',2], ['c',3], ['d',undefined]]
   _.zip = function() {
+    var args = Array.prototype.slice.call(arguments,0);
+
+    var lengths = _.map(args, function(arg) {return arg.length;});
+    var maxLength =  Math.max.apply(null,lengths);
+    var result = [];
+    
+    for (var j = 0; j < maxLength; j++) {
+      result[j] = _.pluck(args, j);
+    }
+    return result;
   };
 
   // Takes a multidimensional array and converts it to a one-dimensional array.
@@ -345,16 +469,54 @@ var _ = {};
   //
   // Hint: Use Array.isArray to check if something is an array
   _.flatten = function(nestedArray, result) {
+    var flatArray = [];
+    for (var i = 0; i < nestedArray.length; i++){
+      if ( Array.isArray(nestedArray[i]) ) {
+        flatArray = flatArray.concat( _.flatten(nestedArray[i]) );
+      }
+      else {
+        flatArray = flatArray.concat(nestedArray[i]);
+      }
+    }
+    return flatArray;
   };
 
   // Takes an arbitrary number of arrays and produces an array that contains
   // every item shared between all the passed-in arrays.
   _.intersection = function() {
+    var args = Array.prototype.slice.call(arguments,0);
+    var array = args[0];
+    var result = [];
+    for (var i = 0; i < array.length; i++){
+      var element = array[i];
+      if ( _.contains(result, element) ) {continue;}
+      for (var j = 1; j < args.length; j++) {
+        if ( !_.contains(args[j], element) ) {break;}
+      }
+      if ( j === args.length) {result.push(element);}
+    }
+    return result;
   };
 
   // Take the difference between one array and a number of other arrays.
   // Only the elements present in just the first array will remain.
   _.difference = function(array) {
+    /*var args = Array.prototype.slice.call(arguments,0);
+    var result = [];
+    for (var i = 0; i < array.length; i++){
+      var element = array[i];
+      if ( _.contains(result, element) ) {continue;}
+      for (var j = 1; j < args.length; j++) {
+        if ( _.contains(args[j], element) ) {break;}
+      }
+      if ( j === args.length) {result.push(element);}
+    }
+    return result;*/
+    var remainingArrays = Array.prototype.slice.call(arguments,1);
+    var remainingElements = _.flatten(remainingArrays);
+    return _.filter(array, function(e){
+      return !_.contains(remainingElements,e);
+    });
   };
 
 
@@ -368,6 +530,26 @@ var _ = {};
   //
   // See the Underbar readme for details.
   _.throttle = function(func, wait) {
+    var result;
+    var timeoutID = null;
+    var last = 0;
+    return function(){
+      var now = new Date();
+      var timeRemaining = wait - (now - last);
+      if ( timeRemaining <= 0 ) {
+        last = now;
+        result =  func.apply(this,arguments);
+      }
+      else {
+        clearTimeout(timeoutID);
+        timeoutID = setTimeout(function() {
+          last = now;
+          result = func.apply(this,arguments);
+        }, wait);
+
+      }
+      return result;
+    }
   };
 
 }).call(this);
